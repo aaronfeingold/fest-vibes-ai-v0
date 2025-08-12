@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: twitter-bot-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
+      MONGO_INITDB_DATABASE: twitter_bot
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - twitter-bot-network
+
+  postgresql:
+    image: pgvector/pgvector:pg16
+    container_name: twitter-bot-postgresql
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-twitter_bot}
+      POSTGRES_USER: ${POSTGRES_USER:-twitter_bot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql:ro
+    networks:
+      - twitter-bot-network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: twitter-bot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - twitter-bot-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: twitter-bot-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - twitter-bot-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: twitter-bot-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - twitter-bot-network
+    depends_on:
+      - prometheus
+
+  twitter-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: twitter-bot-app
+    restart: unless-stopped
+    environment:
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/twitter_bot?authSource=admin
+      - POSTGRES_URI=postgresql://twitter_bot:password@postgresql:5432/twitter_bot
+      - REDIS_URI=redis://redis:6379
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - twitter-bot-network
+    depends_on:
+      - mongodb
+      - postgresql
+      - redis
+
+volumes:
+  mongodb_data:
+  postgresql_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  twitter-bot-network:
+    driver: bridge
