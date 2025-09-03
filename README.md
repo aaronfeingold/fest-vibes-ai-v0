@@ -1,11 +1,11 @@
-# Autonomous Twitter Bot System
+# Autonomous Social Media System
 
-An intelligent, multi-agent Twitter bot system designed for the New Orleans music and culture domain. The system uses AI agents for autonomous decision-making across user discovery, content generation, and strategic engagement.
+An intelligent, multi-agent Social Media system designed, initially designed for the New Orleans music and culture domain. In this system, we refer to agents as autonomous decision-makers, acting across user discovery, context enriched content generation, and strategic engagement.
 
 ## Features
 
-- **Multi-Agent Architecture**: Specialized agents for following, content creation, and engagement
-- **AI-Powered Content**: LLM integration for authentic, contextual content generation
+- **Distributed Workflow**: Specialized agents for following, content creation, and engagement
+- **Generative Content**: LLM integration for authentic, contextual content generation
 - **Smart User Discovery**: Vector-based similarity matching for relevant user targeting
 - **Safety-First Design**: Comprehensive rate limiting and spam prevention
 - **Real-Time Monitoring**: Prometheus metrics with Grafana dashboards
@@ -33,6 +33,43 @@ An intelligent, multi-agent Twitter bot system designed for the New Orleans musi
                     │ MongoDB + PostgreSQL │
                     └──────────────────────┘
 ```
+
+### Database Architecture
+
+The system uses a **polyglot persistence** approach with three specialized databases:
+
+#### MongoDB (Document Store)
+
+- **Primary operational data**: User profiles, content cache, engagement history, bot metrics
+- **Flexible schema**: Handles varied social media data structures
+- **Collections**:
+  - `users`: Twitter user profiles and follow status
+  - `content_cache`: Generated posts and comments ready for publishing
+  - `engagement_history`: All bot interactions (likes, follows, comments)
+  - `bot_metrics`: Performance and system health metrics
+
+#### PostgreSQL with pgvector (Dual Vector Database Setup)
+
+**Bot Operations Database (Primary)**
+
+- **Purpose**: Bot intelligence, content analysis, and user targeting
+- **Vector embeddings**: Content similarity, user interest matching, semantic search
+- **Supports**: Local development (Docker) or cloud deployment
+- **AI/ML features**: Content embeddings, user interest vectors, semantic search
+- **Vector similarity**: Finds similar content and relevant users
+- **Tables**:
+  - `content_embeddings`: Vector representations of tweets and posts
+  - `user_interest_vectors`: User preference vectors for smart targeting
+  - `tweet_embeddings`: Historical tweet analysis for pattern recognition
+  - `semantic_search_cache`: Cached similarity search results
+
+**Data Lake Database (Neon DB)**
+
+- **Purpose**: Event data storage, venue information, and posts repository
+- **Content**: Real-world data for context and content generation
+- **RAG Features**: Event scheduling, venue discovery, post history analysis
+- **Data Sources**: Events, venues, historical posts
+- **Usage**: Read-only access for bot context and content generation
 
 ## Quick Start
 
@@ -94,6 +131,11 @@ OPENAI_API_KEY=your_openai_api_key
 # OR
 ANTHROPIC_API_KEY=your_anthropic_api_key
 
+# Embedding Configuration (for RAG and content similarity)
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIMENSIONS=384
+EMBEDDING_ENCODING_FORMAT=float
+
 # Bot Configuration
 BOT_USERNAME=your_bot_username
 TARGET_LOCATION=New Orleans
@@ -102,10 +144,103 @@ LIKE_THRESHOLD=0.6
 REPOST_THRESHOLD=0.8
 COMMENT_THRESHOLD=0.9
 
+# Database Configuration (Choose one)
+# Option 1: Local PostgreSQL (Docker) - Development
+POSTGRES_URI=postgresql://twitter_bot:password@localhost:5433/twitter_bot
+
+# Option 2: Neon PostgreSQL (Cloud) - Production
+# POSTGRES_URI=postgresql://username:password@ep-xxx-xxx.us-east-1.aws.neon.tech/database_name?sslmode=require
+
 # Rate Limits
 MAX_FOLLOWS_PER_DAY=50
 MAX_POSTS_PER_DAY=10
 MAX_LIKES_PER_HOUR=30
+```
+
+## Database Setup
+
+### Option 1: Local Development (Docker)
+
+Use the provided Docker Compose setup with local PostgreSQL:
+
+```bash
+# Start all services including local PostgreSQL
+docker-compose --profile local-db up -d
+
+# Or start everything (default includes PostgreSQL)
+docker-compose up -d
+```
+
+### Option 2: Production with Neon PostgreSQL
+
+For production deployments with [Neon](https://neon.tech) as your PostgreSQL provider:
+
+#### Bot Operations Database (Neon #1)
+
+1. **Create Bot Operations Database**
+
+   ```bash
+   # Sign up at https://neon.tech
+   # Create a new project for bot operations
+   # Copy the connection string
+   ```
+
+2. **Enable pgvector Extension**
+   ```sql
+   -- Connect to your bot operations database and run:
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+
+#### Events Source Database (Neon #2 or separate)
+
+3. **Create/Configure Events Database**
+
+   ```bash
+   # Option A: Create second Neon database for events
+   # Option B: Use existing events database with proper access
+   ```
+
+4. **Enable pgvector Extension**
+
+   ```sql
+   -- Connect to your events database and run:
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+
+5. **Update Environment Variables**
+
+   ```env
+   # Bot operations database (Neon #1)
+   POSTGRES_URI=postgresql://username:password@ep-xxx-xxx.us-east-1.aws.neon.tech/twitter_bot?sslmode=require
+   USE_LOCAL_POSTGRES=false
+   POSTGRES_SSL_MODE=require
+
+   # Events source database (Neon #2 or different provider)
+   EVENTS_POSTGRES_URI=postgresql://events_user:password@ep-yyy-yyy.us-east-1.aws.neon.tech/events_db?sslmode=require
+   USE_LOCAL_EVENTS_POSTGRES=false
+   EVENTS_POSTGRES_SSL_MODE=require
+   ```
+
+6. **Start Services (without local PostgreSQL)**
+   ```bash
+   # This will skip the local PostgreSQL container
+   docker-compose up mongodb redis grafana prometheus twitter-bot
+   ```
+
+### Database Profiles
+
+The system supports different deployment profiles:
+
+- **local-db**: Full local setup with Docker PostgreSQL
+- **cloud**: Uses external PostgreSQL (like Neon) with local MongoDB/Redis
+- **full**: All services including local PostgreSQL (default)
+
+```bash
+# Local development
+docker-compose --profile local-db up -d
+
+# Production with cloud PostgreSQL
+docker-compose up -d  # (automatically excludes PostgreSQL)
 ```
 
 ## Agents
