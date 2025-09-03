@@ -3,7 +3,7 @@
 import asyncio
 import random
 import re
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
 from loguru import logger
@@ -13,10 +13,9 @@ from src.models.data_models import (
     EngagementHistory,
     ActionType,
     EngagementDecision,
-    User,
     ContentType,
 )
-from src.utils.rate_limiter import agent_queue_size
+from src.prompts.agent_prompts import EngagementPrompts
 
 
 class EngagementAgent(BaseAgent):
@@ -612,12 +611,11 @@ class EngagementAgent(BaseAgent):
             # For high-value content, add a comment to the repost
             repost_comment = None
             if decision.score > 0.8:
-                # Get content agent to generate repost comment
-                from src.agents.content_agent import ContentAgent
-
-                # This would need proper dependency injection in practice
-                # repost_comment = await content_agent.generate_repost_comment(tweet)
-                pass
+                # Generate repost comment using centralized prompt system
+                repost_prompt = EngagementPrompts.get_repost_comment_prompt(tweet, decision.score)
+                # Note: In full implementation, this would use LLM client to generate content
+                # For now, we'll skip the complex generation
+                repost_comment = None
 
             if repost_comment:
                 result = await self.safe_twitter_call(
@@ -659,8 +657,6 @@ class EngagementAgent(BaseAgent):
         try:
             # Import content agent to generate contextual comment
             # In practice, this should be injected as a dependency
-            from src.agents.content_agent import ContentAgent
-
             # This is a simplified approach - in practice, we'd use proper DI
             content_agent = None  # Would be injected
 
@@ -718,16 +714,8 @@ class EngagementAgent(BaseAgent):
 
                 return selected_comment.content
 
-            # Fallback simple responses
-            fallback_responses = [
-                "This is so important",
-                "Love this perspective!",
-                "Absolutely needed to see this",
-                "This hits different",
-                "So here for this energy",
-            ]
-
-            return random.choice(fallback_responses)
+            # Use centralized fallback responses
+            return EngagementPrompts.get_fallback_response()
 
         except Exception as e:
             logger.error(f"Failed to generate contextual comment: {e}")
