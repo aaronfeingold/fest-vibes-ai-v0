@@ -22,7 +22,7 @@ services:
     container_name: twitter-bot-postgresql
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-twitter_bot}
       POSTGRES_USER: ${POSTGRES_USER:-twitter_bot}
@@ -32,13 +32,16 @@ services:
       - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql:ro
     networks:
       - twitter-bot-network
+    profiles:
+      - local-db
+      - full
 
   redis:
     image: redis:7.2-alpine
     container_name: twitter-bot-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -87,7 +90,8 @@ services:
     restart: unless-stopped
     environment:
       - MONGODB_URI=mongodb://admin:password@mongodb:27017/twitter_bot?authSource=admin
-      - POSTGRES_URI=postgresql://twitter_bot:password@postgresql:5432/twitter_bot
+      # Use local PostgreSQL if available, otherwise use env variable (for Neon)
+      - POSTGRES_URI=${POSTGRES_URI:-postgresql://twitter_bot:password@postgresql:5432/twitter_bot}
       - REDIS_URI=redis://redis:6379
     env_file:
       - .env
@@ -97,7 +101,6 @@ services:
       - twitter-bot-network
     depends_on:
       - mongodb
-      - postgresql
       - redis
 
 volumes:

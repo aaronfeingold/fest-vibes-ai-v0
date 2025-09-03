@@ -1,0 +1,30 @@
+# Docker Compose override file for different deployment scenarios
+
+# For development with local databases (default)
+# Run with: docker-compose --profile local-db up
+
+# For production with Neon PostgreSQL (no local PostgreSQL)
+# Run with: docker-compose up (excludes postgresql service)
+
+version: '3.8'
+
+services:
+  # Override twitter-bot service to conditionally depend on PostgreSQL
+  twitter-bot:
+    depends_on:
+      - mongodb
+      - redis
+      # PostgreSQL dependency is conditional based on profile
+    profiles:
+      - default
+      - cloud
+
+# Additional override for local development with all services
+profiles:
+  local-db:
+    services:
+      twitter-bot:
+        depends_on:
+          - mongodb
+          - postgresql
+          - redis
