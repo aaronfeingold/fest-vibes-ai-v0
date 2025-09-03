@@ -17,7 +17,7 @@ from loguru import logger
 async def main() -> None:
     """Main application entry point."""
     logger.info("Starting Autonomous Twitter Bot System")
-    
+
     try:
         config = BotConfig()
         scheduler = BotScheduler(config)
