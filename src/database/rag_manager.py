@@ -144,10 +144,13 @@ class RAGManager:
                             v.longitude,
                             v.name as venue_full_name,
                             a.name as artist_full_name,
-                            -- Calculate similarity using both event and venue embeddings
+                            -- Calculate similarity using event, venue, artist, and genre embeddings
+                            -- For genres, we'll use the maximum similarity across all genres for this event
                             GREATEST(
-                                1 - (e.event_text_embedding <=> $1),
-                                1 - (v.venue_info_embedding <=> $1)
+                                COALESCE(1 - (e.event_text_embedding <=> $1), 0),
+                                COALESCE(1 - (v.venue_info_embedding <=> $1), 0),
+                                COALESCE(1 - (a.description_embedding <=> $1), 0),
+                                COALESCE(MAX(1 - (g.genre_embedding <=> $1)), 0)
                             ) as similarity_score,
                             -- Aggregate genres
                             ARRAY_AGG(DISTINCT g.name) as genres
@@ -159,11 +162,14 @@ class RAGManager:
                         WHERE e.performance_time BETWEEN $2 AND $3
                         AND (
                             (e.event_text_embedding IS NOT NULL AND 1 - (e.event_text_embedding <=> $1) >= $4) OR
-                            (v.venue_info_embedding IS NOT NULL AND 1 - (v.venue_info_embedding <=> $1) >= $4)
+                            (v.venue_info_embedding IS NOT NULL AND 1 - (v.venue_info_embedding <=> $1) >= $4) OR
+                            (a.description_embedding IS NOT NULL AND 1 - (a.description_embedding <=> $1) >= $4) OR
+                            (g.genre_embedding IS NOT NULL AND 1 - (g.genre_embedding <=> $1) >= $4)
                         )
                         GROUP BY e.id, e.artist_name, e.venue_name, e.performance_time,
                                 e.end_time, e.description, e.venue_id, v.latitude, v.longitude,
-                                v.name, a.name, e.event_text_embedding, v.venue_info_embedding
+                                v.name, a.name, e.event_text_embedding, v.venue_info_embedding,
+                                a.description_embedding
                     )
                     SELECT * FROM event_search
                     ORDER BY similarity_score DESC, performance_time ASC
