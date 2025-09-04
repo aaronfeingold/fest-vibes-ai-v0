@@ -35,14 +35,14 @@ class RAGContentGenerator:
 
     # Default search queries for different vibes
     DEFAULT_QUERIES = [
-        "jazz brass funk music tonight New Orleans",
-        "bounce hip hop live music venue",
+        "jazz brass funk music Frenchmen",
+        "bounce funk d.b.a",
         "indie rock alternative live show NOLA",
-        "electronic house dance music event",
-        "acoustic singer songwriter intimate venue",
-        "zydeco second line street music",
-        "funk jam session late night",
-        "neo soul R&B live performance",
+        "electronic house dance Bourbon",
+        "Marigny acoustic singer songwriter St. Claude",
+        "zydeco second line funk jam jazz",
+        "electronic house dance late CBD",
+        "soul R&B blues bluegrass",
     ]
 
     def __init__(self):
