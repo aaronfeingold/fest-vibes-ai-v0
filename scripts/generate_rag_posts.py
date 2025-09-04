@@ -15,7 +15,7 @@ import asyncio
 import sys
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 import random
 
 # Add project root to Python path for imports
@@ -23,7 +23,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.config.settings import DatabaseConfig, LLMConfig, AgentConfig
-from src.database.rag_manager import RAGManager, EventSearchResult, OptimizedSchedule
+from src.database.rag_manager import RAGManager, OptimizedSchedule
 from src.utils.llm_client import LLMClient
 from src.utils.route_calculator import RouteCalculator
 from src.prompts.rag_prompts import RAGPrompts
@@ -88,10 +88,8 @@ class RAGContentGenerator:
         )
 
         # Use random query if none provided
-        # if search_query is None:
-        #     search_query = random.choice(self.DEFAULT_QUERIES)
-
-        search_query = "funk"
+        if search_query is None:
+            search_query = random.choice(self.DEFAULT_QUERIES)
 
         try:
             print(f"Searching for events: '{search_query}'")
@@ -534,7 +532,8 @@ Available schedule types: distance_optimized, time_optimized, genre_focused
 
     if args.count > 10:
         print(
-            "WARNING: Generating more than 10 RAG posts may take a very long time due to database queries and rate limiting"
+            "WARNING: Generating more than 10 RAG posts may take a very long time "
+            "due to database queries and rate limiting"
         )
         response = input("Continue? (y/N): ")
         if response.lower() != "y":
