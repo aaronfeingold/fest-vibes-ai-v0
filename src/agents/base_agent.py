@@ -243,7 +243,7 @@ class BaseAgent(ABC):
                 return result
 
         except tweepy.TooManyRequests as e:
-            logger.warning(f"Rate limit hit for {api_method}")
+            logger.warning(f"Rate limit hit for {api_method}: {e}")
             self.rate_limiter.apply_backoff(rate_limit_key, 900)
             raise
 
