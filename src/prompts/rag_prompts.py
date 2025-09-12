@@ -26,7 +26,34 @@ class RAGPrompts:
     @staticmethod
     def _format_time_string(performance_time: str) -> str:
         """Extract time string from ISO datetime or return TBA."""
-        return performance_time.split("T")[1][:5] if performance_time else "TBA"
+        from loguru import logger
+        
+        if not performance_time:
+            logger.debug("_format_time_string: Empty performance_time, returning TBA")
+            return "TBA"
+
+        try:
+            # Extract time from ISO format like "2025-07-29T05:00:00+00:00"
+            time_part = performance_time.split("T")[1][:5]  # Gets "05:00"
+
+            # Convert to 12-hour format
+            hour, minute = time_part.split(":")
+            hour_int = int(hour)
+            if hour_int == 0:
+                formatted_time = f"12:{minute}am"
+            elif hour_int < 12:
+                formatted_time = f"{hour_int}:{minute}am"
+            elif hour_int == 12:
+                formatted_time = f"12:{minute}pm"
+            else:
+                formatted_time = f"{hour_int - 12}:{minute}pm"
+            
+            logger.debug(f"_format_time_string: {performance_time} -> {formatted_time}")
+            return formatted_time
+            
+        except Exception as e:
+            logger.error(f"_format_time_string: Error parsing {performance_time}: {e}")
+            return "TBA"
 
     @staticmethod
     def _format_event_list(
@@ -231,6 +258,12 @@ Each venue under 15 mins apart. Reply ROUTE for walking directions."
 
         events_text = RAGPrompts._format_event_list(events, include_genres=False)
         route_data = RAGPrompts._extract_route_info(route_info)
+        
+        # Debug logging
+        from loguru import logger
+        logger.debug(f"Genre focus prompt - events received: {events}")
+        logger.debug(f"Genre focus prompt - formatted events_text: {events_text}")
+        logger.debug(f"Genre focus prompt - primary_genre: {primary_genre}")
 
         prompt = f"""
         {RAGPrompts.BASE_CONTEXT}
@@ -246,12 +279,13 @@ Each venue under 15 mins apart. Reply ROUTE for walking directions."
         1. Leads with the genre as the organizing theme
         2. Shows the curated progression through NOLA's {primary_genre} scene
         3. Mentions route efficiency
-        4. Includes a CTA related to genre preferences
+        4. Includes date and times of events
+        5. Includes a CTA related to genre preferences
 
         Style examples:
-        - "Funk night done right: 8pm Tip's House → 10:30 Gasa Gasa → 12:45 Hi-Ho. \
+        - "Funk night done right this friday 9/5/25: 8pm Tipitinas → 11:30 Gasa Gasa → 1:45am Hi-Ho. \
 2.1 miles of pure groove. What's your go-to funk progression?"
-        - "Brass line starts at 7: Preservation Hall → French Market → Spotted Cat. \
+        - "The Brass Fest Vibes start at 7 tonight: Preservation Hall → 9:00pm French Market → 11:00pm Spotted Cat. \
 Walking the tradition, venue by venue. Reply BRASS for more lineups."
 
         Output only the tweet text.

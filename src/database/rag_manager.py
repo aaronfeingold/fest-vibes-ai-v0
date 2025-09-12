@@ -4,12 +4,20 @@ import math
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
 from dataclasses import dataclass
+from enum import Enum
 
 import asyncpg
 from loguru import logger
 
 from src.config.settings import DatabaseConfig
 from src.utils.llm_client import LLMClient
+
+
+class ScheduleType(str, Enum):
+    """Available schedule optimization types."""
+    GENRE_FOCUSED = "genre_focused"
+    TIME_OPTIMIZED = "time_optimized"
+    DISTANCE_OPTIMIZED = "distance_optimized"
 
 
 @dataclass
@@ -28,8 +36,10 @@ class EventSearchResult:
     latitude: Optional[float]
     longitude: Optional[float]
     similarity_score: float
+    venue_address: Optional[str]
 
 
+# I posit that users want to know how far to go from one venue to another. This is a distance between venues.
 @dataclass
 class VenueDistance:
     """Distance information between venues."""
@@ -50,7 +60,7 @@ class OptimizedSchedule:
     total_distance_miles: float
     total_travel_time_minutes: int
     venue_transitions: List[VenueDistance]
-    schedule_type: str  # "genre_focused", "time_optimized", "distance_optimized"
+    schedule_type: ScheduleType
 
 
 class RAGManager:
@@ -142,6 +152,7 @@ class RAGManager:
                             e.venue_id,
                             v.latitude,
                             v.longitude,
+                            v.full_address as full_address,
                             v.name as venue_full_name,
                             a.name as artist_full_name,
                             -- Calculate similarity using event, venue, artist, and genre embeddings
@@ -168,7 +179,7 @@ class RAGManager:
                         )
                         GROUP BY e.id, e.artist_name, e.venue_name, e.performance_time,
                                 e.end_time, e.description, e.venue_id, v.latitude, v.longitude,
-                                v.name, a.name, e.event_text_embedding, v.venue_info_embedding,
+                                v.full_address, v.name, a.name, e.event_text_embedding, v.venue_info_embedding,
                                 a.description_embedding
                     )
                     SELECT * FROM event_search
@@ -201,6 +212,7 @@ class RAGManager:
                             latitude=row["latitude"],
                             longitude=row["longitude"],
                             similarity_score=row["similarity_score"],
+                            venue_address=row["full_address"],
                         )
                     )
 
