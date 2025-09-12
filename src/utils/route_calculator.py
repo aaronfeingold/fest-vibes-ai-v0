@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-
+from src.database.rag_manager import ScheduleType
 from loguru import logger
 
 
@@ -36,19 +36,6 @@ class RouteSegment:
 
 
 @dataclass
-class OptimizedRoute:
-    """A complete optimized route through multiple venues."""
-
-    venue_ids: List[int]
-    segments: List[RouteSegment]
-    total_distance_miles: float
-    total_travel_time_minutes: int
-    total_estimated_cost: float
-    recommended_transport_modes: List[TransportMode]
-    route_efficiency_score: float  # 0-1, higher is better
-
-
-@dataclass
 class VenueCoordinate:
     """Venue coordinate information."""
 
@@ -57,6 +44,21 @@ class VenueCoordinate:
     address: str
     latitude: float
     longitude: float
+
+
+@dataclass
+class OptimizedRoute:
+    """A complete optimized route through multiple venues."""
+
+    venue_ids: List[int]
+    coordinates: List[VenueCoordinate]
+    segments: List[RouteSegment]
+    total_distance_miles: float
+    total_travel_time_minutes: int
+    total_estimated_cost: float
+    recommended_transport_modes: List[TransportMode]
+    route_efficiency_score: float  # 0-1, higher is better
+    route_type: ScheduleType
 
 
 class RouteCalculator:
@@ -377,7 +379,7 @@ class RouteCalculator:
 
         if not route.segments:
             return "No route available"
-
+        logger.info(f"Generating route summary for {route.route_type} route")
         # Create concise summary
         venue_count = len(route.venue_ids)
         distance_str = f"{route.total_distance_miles:.1f}mi"
@@ -416,7 +418,7 @@ class RouteCalculator:
         else:
             time_desc = f"{route.total_travel_time_minutes}min total travel"
 
-        return f"{distance_str} {mobility_desc} route, {cost_desc}, {time_desc}"
+        return f"{venue_count}-venue {distance_str} {mobility_desc} route, {cost_desc}, {time_desc}"
 
     def get_route_turn_by_turn(self, route: OptimizedRoute) -> List[str]:
         """Get turn-by-turn instructions for the route."""
