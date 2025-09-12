@@ -741,15 +741,17 @@ class ContentAgent(BaseAgent):
             # Convert to format for prompt generation
             event_dicts = []
             for event in schedule.events:
-                event_dicts.append(
-                    {
-                        "performance_time": event.performance_time.isoformat(),
-                        "venue_name": event.venue_name,
-                        "artist_name": event.artist_name,
-                        "genres": event.genres,
-                        "description": event.description,
-                    }
-                )
+                event_dict = {
+                    "performance_time": event.performance_time.isoformat(),
+                    "venue_name": event.venue_name,
+                    "artist_name": event.artist_name,
+                    "genres": event.genres,
+                    "description": event.description,
+                }
+                event_dicts.append(event_dict)
+                logger.debug(f"Event dict created: {event_dict}")
+
+            logger.debug(f"Total event_dicts created: {len(event_dicts)}")
 
             # Generate route summary
             route_summary = self.route_calculator.generate_route_summary(
