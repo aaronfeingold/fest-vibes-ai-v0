@@ -17,6 +17,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List
 import random
+from loguru import logger
+from src.utils.route_calculator import TransportMode
 
 # Add project root to Python path for imports
 project_root = Path(__file__).parent.parent
@@ -238,25 +240,64 @@ class RAGContentGenerator:
 
     def _convert_schedule_to_route(self, schedule: OptimizedSchedule):
         """Convert schedule to route format for route calculator."""
-        from src.utils.route_calculator import OptimizedRoute, VenueCoordinate
-
+        from src.utils.route_calculator import OptimizedRoute, VenueCoordinate, RouteCalculator
+        logger.info(f"Converting schedule to route for {schedule.schedule_type} route")
         coordinates = []
+        venues_ids = []
+
         for event in schedule.events:
             if event.latitude and event.longitude:
                 coordinates.append(
                     VenueCoordinate(
                         venue_id=event.venue_id,
-                        venue_name=event.venue_name,
+                        name=event.venue_name,
                         latitude=event.latitude,
                         longitude=event.longitude,
+                        address=event.venue_address,
                     )
                 )
+            venues_ids.append(event.venue_id)
+
+        # Recommend transport mode based on total distance
+        if schedule.total_distance_miles > 1.0:
+            recommended_transport = [TransportMode.RIDESHARE]
+            transport_mode = TransportMode.RIDESHARE
+            budget_preference = "convenience"  # Use convenience for rideshare routes
+            logger.info(f"Recommending rideshare for {schedule.total_distance_miles:.2f} mile route")
+        else:
+            recommended_transport = [TransportMode.WALKING]
+            transport_mode = TransportMode.WALKING
+            budget_preference = "budget"  # Use budget for walking routes
+            logger.info(f"Recommending walking for {schedule.total_distance_miles:.2f} mile route")
+
+        # Use RouteCalculator to create proper segments
+        route_calculator = RouteCalculator()
+        segments = []
+        total_cost = 0.0
+
+        for i in range(len(coordinates) - 1):
+            current_venue = coordinates[i]
+            next_venue = coordinates[i + 1]
+
+            # Use the existing calculate_route_segment method
+            segment = route_calculator.calculate_route_segment(
+                from_venue=current_venue,
+                to_venue=next_venue,
+                transport_mode=transport_mode,
+                budget_preference=budget_preference
+            )
+            segments.append(segment)
+            total_cost += segment.estimated_cost or 0.0
 
         return OptimizedRoute(
+            venue_ids=venues_ids,
             coordinates=coordinates,
+            segments=segments,
             total_distance_miles=schedule.total_distance_miles,
             total_travel_time_minutes=schedule.total_travel_time_minutes,
-            total_estimated_cost=0.0,
+            total_estimated_cost=total_cost,
+            recommended_transport_modes=recommended_transport,
+            route_efficiency_score=1.0,
             route_type=schedule.schedule_type,
         )
 
